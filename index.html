@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Credible Plus - Vouchers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.28.4/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@200;300;400;500;600;700;800&display=swap');
+        body { 
+            font-family: 'Assistant', sans-serif; 
+            background-color: #F0F2F5; 
+            -webkit-tap-highlight-color: transparent; 
+            overflow-x: hidden; 
+            width: 100%;
+        }
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+        .slide-out {
+            animation: slideOut 0.5s forwards ease-in-out;
+        }
+        @keyframes slideOut {
+            0% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; visibility: hidden; height: 0; padding: 0; margin: 0; }
+        }
+        .welcome-banner {
+            animation: fadeInOut 2.5s forwards ease-in-out;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .grid-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 0.8fr 0.8fr 40px;
+            gap: 8px;
+            align-items: center;
+            text-align: center;
+        }
+        .grid-row > *:first-child {
+            text-align: right;
+        }
+        .truncate-custom {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // ה-URL המעודכן שסיפקת לסנכרון עם הגוגל שיטס
+        const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzyeXEMemISQzHcJu4qteFmNeQvJo4FgrAwFi6BT1U5tSwKOV1mAN8hGtS4qUUv7k4QQA/exec';
+        
+        const AREA_MANAGERS = {
+            '037122595': 'טירן סיגורה',
+            '040476012': 'נחום נחום',
+            '034887919': 'שי סיידון',
+            '021710553': 'אהוד מועלם',
+            '301132023': 'מושיקו מוואס',
+        };
+        const ADMIN_CODE = 'credible';
+
+        const HEBREW_MONTHS = [
+            {v: '01', n: 'ינואר'}, {v: '02', n: 'פברואר'}, {v: '03', n: 'מרץ'}, {v: '04', n: 'אפריל'},
+            {v: '05', n: 'מאי'}, {v: '06', n: 'יוני'}, {v: '07', n: 'יולי'}, {v: '08', n: 'אוגוסט'},
+            {v: '09', n: 'ספטמבר'}, {v: '10', n: 'אוקטובר'}, {v: '11', n: 'נובמבר'}, {v: '12', n: 'דצמבר'}
+        ];
+
+        const Icons = {
+            Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+            LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        };
+
+        const Logo = ({ className = "h-8", lightMode = false }) => {
+            const textColor = lightMode ? "#FFFFFF" : "#262626";
+            return (
+                <svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0 0 301.68 65.71" className={className}>
+                  <defs>
+                    <linearGradient id="lg-1" x1="209.98" y1="58.62" x2="301.68" y2="58.62" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stopColor="#f6d19c"/><stop offset=".36" stopColor="#d4a55f"/><stop offset=".69" stopColor="#c89644"/><stop offset="1" stopColor="#9c7229"/>
+                    </linearGradient>
+                    <linearGradient id="lg-2" x1="0" y1="58.62" x2="91.7" y2="58.62" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stopColor="#9c7229"/><stop offset=".31" stopColor="#c89644"/><stop offset=".64" stopColor="#d4a55f"/><stop offset="1" stopColor="#f6d19c"/>
+                    </linearGradient>
+                    <linearGradient id="lg-3" x1="205.46" y1="34.15" x2="234.12" y2="5.49" xlinkHref="#lg-2"/>
+                    <linearGradient id="lg-4" x1="231.49" y1="36.91" x2="256.16" y2="12.23" xlinkHref="#lg-2"/>
+                    <linearGradient id="lg-5" x1="253.6" y1="33.89" x2="282.52" y2="4.96" xlinkHref="#lg-2"/>
+                    <linearGradient id="lg-6" x1="278.37" y1="35.09" x2="304.84" y2="8.61" xlinkHref="#lg-2"/>
+                    <linearGradient id="lg-7" x1="2.17" y1="41.24" x2="41.51" y2="1.89" xlinkHref="#lg-2"/>
+                  </defs>
+                  <g>
+                    <g fill={textColor}>
+                        <path d="m100.87,59.41v-3.86c0-.37-.12-.49-.46-.49h-.14c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h.61c.68,0,1.11.35,1.11,1.03v4.35c0,.14-.08.21-.21.21h-.69c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m110.13,62.95l-3.49-5.02c-1.32.77-1.6,2.09-1.6,3.1,0,.91.17,1.38.31,1.84.05.14-.05.23-.18.23h-.68c-.15,0-.21-.09-.26-.23-.14-.43-.31-1.04-.31-1.9,0-1.46.48-3.03,2.1-3.92l-1.92-2.76c-.09-.12-.03-.25.11-.25h.86c.12,0,.18.05.26.15l3.26,4.68c1.4-.71,1.69-1.9,1.69-2.93,0-.74-.15-1.21-.29-1.69-.03-.12.04-.21.18-.21h.69c.14,0,.2.09.25.23.14.41.29,1,.29,1.78,0,1.41-.51,2.86-2.2,3.72l2.15,3.09c.09.12.03.25-.11.25h-.86c-.12,0-.18-.05-.26-.15Z"/>
+                        <path d="m118.85,62.89v-5.7c0-1.44-.43-2.1-2.04-2.1h-3.49c-.14,0-.21-.08-.21-.21v-.61c0-.14.08-.21.21-.21h3.96c1.83,0,2.72,1.06,2.72,2.67v6.17c0,.14-.08.21-.21.21h-.72c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m122.48,59.06v-4.81c0-.14.08-.21.21-.21h.72c.14,0,.21.08.21.21v3.62h.68c1.49,0,2.06-.52,2.06-1.78v-1.84c0-.14.08-.21.21-.21h.69c.14,0,.21.08.21.21v1.97c0,1.6-.83,2.66-2.99,2.66h-.86c.03,2.47,1.12,3.23,3.29,3.23s3.27-.78,3.27-3.35v-4.5c0-.14.08-.21.21-.21h.72c.14,0,.21.08.21.21v4.81c0,2.84-1.52,4.16-4.42,4.16s-4.44-1.32-4.44-4.16Z"/>
+                        <path d="m139.73,62.95l-3.49-5.02c-1.32.77-1.6,2.09-1.6,3.1,0,.91.17,1.38.31,1.84.05.14-.05.23-.18.23h-.68c-.15,0-.21-.09-.26-.23-.14-.43-.31-1.04-.31-1.9,0-1.46.48-3.03,2.1-3.92l-1.92-2.76c-.09-.12-.03-.25.11-.25h.86c.12,0,.18.05.26.15l3.26,4.68c1.4-.71,1.69-1.9,1.69-2.93,0-.74-.15-1.21-.29-1.69-.03-.12.04-.21.18-.21h.69c.14,0,.2.09.25.23.14.41.29,1,.29,1.78,0,1.41-.51,2.86-2.2,3.72l2.15,3.09c.09.12.03.25-.11.25h-.86c-.12,0-.18-.05-.26-.15Z"/>
+                        <path d="m146.36,59.41v-3.86c0-.37-.12-.49-.46-.49h-.14c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h.61c.68,0,1.11.35,1.11,1.03v4.35c0,.14-.08.21-.21.21h-.69c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m150.2,62.89v-7.33c0-.37-.12-.49-.46-.49h-.58c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h1.11c.68,0,1.09.35,1.09,1.03v7.82c0,.14-.08.21-.21.21h-.72c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m154.09,62.89v-7.33c0-.37-.12-.49-.46-.49h-.58c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h1.11c.68,0,1.09.35,1.09,1.03v7.82c0,.14-.08.21-.21.21h-.72c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m157.53,59.41v-3.86c0-.37-.12-.49-.46-.49h-.14c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h.61c.68,0,1.11.35,1.11,1.03v4.35c0,.14-.08.21-.21.21h-.69c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m161.05,62.89v-.61c0-.14.08-.21.21-.21h.17c3.41,0,4.82-2.83,4.82-6.14v-.52c0-.2-.08-.31-.28-.31h-5.1c-.34,0-.52-.21-.52-.55v-1.97c0-.14.08-.21.21-.21h.71c.14,0,.21.08.21.21v1.47h5.25c.37,0,.64.28.64.66v1.55c0,3.64-1.98,6.85-5.81,6.85h-.32c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m170.2,62.89v-7.33c0-.37-.12-.49-.46-.49h-.58c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h1.11c.68,0,1.09.35,1.09,1.03v7.82c0,.14-.08.21-.21.21h-.72c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m176.45,65.5v-11.24c0-.14.08-.21.22-.21h.72c.14,0,.21.08.21.21v4.87h1.15c2.13,0,2.79-.86,2.79-2.32v-2.55c0-.14.08-.21.22-.21h.72c.14,0,.21.08.21.21v2.66c0,1.77-.91,3.26-3.62,3.26h-1.47v5.33c0,.14-.08.21-.21.21h-.72c-.14,0-.22-.08-.22-.21Z"/>
+                        <path d="m185.28,62.89v-7.33c0-.37-.12-.49-.46-.49h-.58c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h1.11c.68,0,1.09.35,1.09,1.03v7.82c0,.14-.08.21-.21.21h-.72c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m187.92,62.89v-.61c0-.14.08-.21.21-.21h2.13l-1.69-7.8c-.03-.14.08-.21.21-.21h.74c.14,0,.18.08.21.21l1.67,7.79c2.03-.18,2.92-1.44,2.92-3.49v-4.3c0-.14.08-.21.21-.21h.72c0,.14.08.21.21.21v4.75c0,2.4-1.52,4.1-4.15,4.1h-3.21c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m197.71,59.41v-3.86c0-.37-.12-.49-.46-.49h-.14c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h.61c.68,0,1.11.35,1.11,1.03v4.35c0,.14-.08.21-.21.21h-.69c-.14,0-.21-.08-.21-.21Z"/>
+                        <path d="m201.1,59.41v-3.86c0-.37-.12-.49-.46-.49h-.14c-.14,0-.2-.08-.2-.21v-.6c0-.14.06-.21.2-.21h.61c.68,0,1.11.35,1.11,1.03v4.35c0,.14-.08.21-.21.21h-.69c-.14,0-.21-.08-.21-.21Z"/>
+                    </g>
+                    <rect fill="url(#lg-1)" x="209.98" y="58.3" width="91.7" height=".64"/>
+                    <rect fill="url(#lg-2)" y="58.3" width="91.7" height=".64"/>
+                    <g fill={textColor}>
+                      <path d="m59.83.12c-6.52,0-9.2,4.63-9.2,10.78v21.81c0,6.15,2.68,10.78,9.2,10.78s9.2-4.63,9.2-10.78v-4.87h-2.68v5.06c0,4.57-1.77,7.98-6.46,7.98s-6.46-3.41-6.46-7.98V10.72c0-4.57,1.77-8.04,6.46-8.04s6.46,3.47,6.46,8.04v3.72h2.68v-3.53c0-6.15-2.68-10.78-9.2-10.78Z"/>
+                      <path d="m91.63,31.38c0-4.63-1.77-7.74-6.15-8.71,4.2-.97,6.15-3.84,6.15-8.83v-3.72c0-6.03-2.62-9.63-9.14-9.63h-8.89v42.65h2.8v-19.07h4.45c4.87,0,7.98,1.58,7.98,7.25v6.7c0,2.32.18,3.84.91,5.12h2.92c-.91-1.4-1.03-3.35-1.03-5.12v-6.64Zm-15.23-9.87V3.05h6.03c4.63,0,6.4,2.74,6.4,7.31v4.02c0,5.73-2.92,7.13-7.92,7.13h-4.51Z"/>
+                      <polygon points="97.11 43.13 113.93 43.13 113.93 40.58 99.91 40.58 99.91 22.79 111.55 22.79 111.55 20.23 99.91 20.23 99.91 3.05 113.93 3.05 113.93 .49 97.11 .49 97.11 43.13"/>
+                      <path d="m127.88.49h-9.38v42.65h9.38c6.58,0,9.44-4.33,9.44-10.6V11.09c0-6.28-2.86-10.6-9.44-10.6Zm6.64,32.17c0,4.69-1.95,7.92-6.7,7.92h-6.52V3.05h6.52c4.69,0,6.7,3.23,6.7,7.92v21.69Z"/>
+                      <rect x="141.95" y=".49" width="2.8" height="42.65"/>
+                      <path d="m161.69,20.41c4.33-.91,5.61-3.78,5.61-8.41v-2.44c0-5.91-2.32-9.08-8.71-9.08h-8.96v42.65h9.14c6.52,0,9.32-3.72,9.32-9.87v-3.72c0-4.81-1.77-8.22-6.4-9.14Zm-9.26-17.36h6.09c4.57,0,5.97,2.32,5.97,6.76v2.74c0,5.42-2.32,6.76-7.31,6.76h-4.75V3.05Zm12.85,30.16c0,4.75-1.83,7.37-6.52,7.37h-6.34v-18.7h5.3c5.06,0,7.55,1.95,7.55,7.49v3.84Z"/>
+                      <polygon points="175.46 .49 172.65 .49 172.65 43.13 188.86 43.13 188.86 40.58 175.46 40.58 175.46 .49"/>
+                      <polygon points="209.88 3.05 209.88 .49 193.06 .49 193.06 43.13 209.88 43.13 209.88 40.58 195.87 40.58 195.87 22.79 207.5 22.79 207.5 20.23 195.87 20.23 195.87 3.05 209.88 3.05"/>
+                    </g>
+                    <g>
+                      <path fill="url(#lg-3)" d="m224.32.49h-9.87v42.65h6.7v-16.02h3.17c6.7,0,9.99-3.72,9.99-10.54v-5.54c0-6.82-3.29-10.54-9.99-10.54Zm3.29,16.51c0,3.05-1.16,4.02-3.29,4.02h-3.17V6.58h3.17c2.13,0,3.29.97,3.29,4.02v6.4Z"/>
+                      <polygon fill="url(#lg-4)" points="244.42 .49 237.72 .49 237.72 43.13 255.45 43.13 255.45 37.04 244.42 37.04 244.42 .49"/>
+                      <path fill="url(#lg-5)" d="m271.71,33.39c0,3.05-1.34,4.14-3.47,4.14s-3.47-1.1-3.47-4.14V.49h-6.7v32.47c0,6.82,3.41,10.72,9.99,10.72s9.99-3.9,9.99-10.72V.49h-6.34v32.9Z"/>
+                      <path fill="url(#lg-6)" d="m288.47,10.3c0-3.05,1.22-4.2,3.35-4.2s3.35,1.16,3.35,4.2v1.77h6.34v-1.34c0-6.82-3.35-10.72-9.87-10.72s-9.87,3.9-9.87,10.72c0,12.18,13.1,13.83,13.1,22.6,0,3.05-1.34,4.14-3.47,4.14s-3.47-1.1-3.47-4.14v-3.05h-6.34v2.62c0,6.82,3.41,10.72,9.99,10.72s9.99-3.9,9.99-10.72c0-12.18-13.1-13.83-13.1-22.6Z"/>
+                    </g>
+                    <path fill="url(#lg-7)" d="m32.51,38.57h-4c-.99,0-1.79-.8-1.79-1.79v-1.55c-.03-.21-.06-.42-.06-.63v-9.22h-9.22c-.14,0-.28,0-.42-.02h-1.62c-.99,0-1.79-.8-1.79-1.79v-4c0-.99.8-1.79,1.79-1.79h11.26v-9.21c0-.22.02-.42.06-.63v-1.38c0-.99.8-1.79,1.79-1.79h4c.99,0,1.79.8,1.79,1.79v11.22h9.1V6.47c0-3.57-2.9-6.47-6.47-6.47H6.74C3.17,0,.27,2.9,.27,6.47v30.2c0,3.57,2.9,6.47,6.47,6.47h30.2c3.57,0,6.47-2.9,6.47-6.47v-11.28h-9.1v11.4c0,.99-.8,1.79-1.79,1.79Z"/>
+                  </g>
+                </svg>
+            );
+        };
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [data, setData] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [toast, setToast] = useState(null);
+            const [welcomeBanner, setWelcomeBanner] = useState(false);
+            const [removingId, setRemovingId] = useState(null);
+
+            const now = new Date();
+            const [filterMonth, setFilterMonth] = useState((now.getMonth() + 1).toString().padStart(2, '0'));
+            const [filterYear, setFilterYear] = useState(now.getFullYear().toString());
+            const [filterAgency, setFilterAgency] = useState('All');
+            const [searchTerm, setSearchTerm] = useState('');
+
+            useEffect(() => {
+                const savedRole = sessionStorage.getItem('v_role');
+                const savedName = sessionStorage.getItem('v_name');
+                if (savedRole && savedName) setUser({ role: savedRole, name: savedName });
+            }, []);
+
+            useEffect(() => {
+                if (user) fetchData(filterMonth, filterYear);
+            }, [user, filterMonth, filterYear]);
+
+            const fetchData = async (m, y) => {
+                setLoading(true);
+                try {
+                    const response = await fetch(`${GOOGLE_WEB_APP_URL}?action=get&month=${m}&year=${y}`);
+                    const res = await response.json();
+                    if (res.status === 'success') setData(res.data || []);
+                    else setData([]);
+                } catch (e) { console.error(e); }
+                finally { setLoading(false); }
+            };
+
+            const handleAction = async (id, actionType) => {
+                if (user.role === 'manager') {
+                    setRemovingId(id);
+                    setTimeout(async () => {
+                        setData(prev => prev.map(v => v.id === id ? { ...v, status: actionType } : v));
+                        setRemovingId(null);
+                        setToast('עודכן בהצלחה');
+                        setTimeout(() => setToast(null), 2000);
+                    }, 500);
+                } else {
+                    setData(prev => prev.map(v => v.id === id ? { ...v, status: actionType } : v));
+                    setToast(actionType === 'נמסר' ? 'סומן כנמסר' : 'הוסר מהתצוגה');
+                    setTimeout(() => setToast(null), 2000);
+                }
+
+                try {
+                    await fetch(GOOGLE_WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'updateStatus', id, status: actionType, month: filterMonth, year: filterYear })
+                    });
+                } catch (e) { console.error(e); }
+            };
+
+            const agencies = useMemo(() => Array.from(new Set(data.map(v => v.agency).filter(Boolean))).sort(), [data]);
+
+            const filteredData = useMemo(() => {
+                const normalize = (s) => String(s || "").trim().toLowerCase();
+                return data.filter(v => {
+                    const rowMgr = normalize(v.manager);
+                    const myName = normalize(user?.name);
+                    
+                    const isEhuddin = myName.includes('אהוד מועלם');
+                    const isMyArea = user?.role === 'manager' 
+                        ? (rowMgr.includes(myName) || myName.includes(rowMgr) || (isEhuddin && (rowMgr.includes('אודי') || rowMgr === 'אודי')))
+                        : true;
+                    
+                    if (user?.role === 'manager' && (v.status === 'נמסר' || v.status === 'לא נותנים')) return false;
+
+                    const mAgency = filterAgency === 'All' || v.agency === filterAgency;
+                    const s = searchTerm.toLowerCase();
+                    const mSearch = !s || [v.agentName, v.agency, v.customerName, v.importer].some(f => normalize(f).includes(s));
+                    
+                    return isMyArea && mAgency && mSearch;
+                }).sort((a, b) => {
+                    const w = (s) => s === 'נמסר' ? 1 : (s === 'לא נותנים' ? 2 : 0);
+                    const wa = w(a.status), wb = w(b.status);
+                    return wa !== wb ? wa - wb : (a.agency || "").localeCompare(b.agency || "", 'he');
+                });
+            }, [data, filterAgency, searchTerm, user]);
+
+            const stats = useMemo(() => {
+                return filteredData.reduce((acc, v) => {
+                    const amt = Number(v.amount) || 0;
+                    if (v.status !== 'לא נותנים') {
+                        acc.total += amt; 
+                        if (v.status === 'נמסר') acc.delivered += amt; 
+                        else acc.pending += amt; 
+                    }
+                    return acc;
+                }, { total: 0, pending: 0, delivered: 0 });
+            }, [filteredData]);
+
+            const exportToExcel = () => {
+                let csv = 'לקוח,יבואן,סוכנות,סוכן,מנהל,סכום,סטטוס\n';
+                filteredData.forEach(v => {
+                    csv += `${v.customerName},${v.importer},${v.agency},${v.agentName},${v.manager},${v.amount},${v.status || 'ממתין'}\n`;
+                });
+                const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.setAttribute("download", `דוח_שוברים_${filterMonth}_${filterYear}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            if (!user) return <LoginScreen onLogin={(u) => { 
+                setUser(u); 
+                sessionStorage.setItem('v_role', u.role); 
+                sessionStorage.setItem('v_name', u.name);
+                setWelcomeBanner(true);
+                setTimeout(() => setWelcomeBanner(false), 2500);
+            }} />;
+
+            return (
+                <div className="min-h-screen pb-20 overflow-x-hidden w-full">
+                    {welcomeBanner && (
+                        <div className="fixed top-10 left-0 right-0 z-[100] flex justify-center pointer-events-none">
+                            <div className="welcome-banner bg-[#262626] border border-[#f6d19c]/40 text-[#f6d19c] px-10 py-3 rounded-full shadow-2xl font-bold text-lg">
+                                ברוך הבא, {user.name}
+                            </div>
+                        </div>
+                    )}
+
+                    <nav className="bg-[#262626] text-white shadow-lg sticky top-0 z-50 border-b border-[#9c7229]/40">
+                        <div className="max-w-3xl mx-auto px-4 flex justify-between items-center py-3">
+                            <div className="flex flex-col">
+                                <Logo className="h-7 w-auto" lightMode={true} />
+                                <span className="text-[10px] text-[#f6d19c] font-bold mt-1 bg-[#9c7229]/20 px-2 rounded w-fit">{user.name}</span>
+                            </div>
+                            <div className="flex gap-2">
+                                {user.role === 'admin' && (
+                                    <button onClick={exportToExcel} className="p-2 hover:bg-white/10 rounded-xl transition text-[#f6d19c]" title="ייצוא לאקסל">
+                                        <Icons.FileText />
+                                    </button>
+                                )}
+                                <button onClick={() => { sessionStorage.clear(); setUser(null); }} className="p-2 hover:bg-white/10 rounded-xl transition">
+                                    <Icons.LogOut />
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-3xl mx-auto p-3 space-y-4">
+                        <div className="bg-white rounded-2xl shadow-sm border p-3 space-y-3">
+                            <div className="relative">
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300"><Icons.Search /></div>
+                                <input type="text" placeholder="חיפוש..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 border rounded-xl pr-10 pl-4 py-2.5 text-[13px] outline-none" />
+                            </div>
+                            <div className="flex gap-2">
+                                <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="bg-slate-50 border rounded-xl py-2 px-3 text-[12px] flex-1">
+                                    {HEBREW_MONTHS.map(m => <option key={m.v} value={m.v}>{m.n}</option>)}
+                                </select>
+                                <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="bg-slate-50 border rounded-xl py-2 px-3 text-[12px] flex-1">
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                </select>
+                                <select value={filterAgency} onChange={e => setFilterAgency(e.target.value)} className="bg-slate-50 border rounded-xl py-2 px-3 text-[12px] flex-1">
+                                    <option value="All">כל הסוכנויות</option>
+                                    {agencies.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-white p-3 rounded-2xl border-b-4 border-[#9c7229] text-center shadow-sm">
+                                <p className="text-[10px] font-bold text-slate-400">סה"כ</p>
+                                <p className="text-[14px] font-black">₪{stats.total.toLocaleString()}</p>
+                            </div>
+                            <div className="bg-[#262626] p-3 rounded-2xl border-b-4 border-black text-center text-white shadow-sm">
+                                <p className="text-[10px] font-bold opacity-60">יתרה</p>
+                                <p className="text-[14px] font-black">₪{stats.pending.toLocaleString()}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-2xl border-b-4 border-emerald-500 text-center text-slate-500 shadow-sm">
+                                <p className="text-[10px] font-bold">נמסר</p>
+                                <p className="text-[14px] font-black">₪{stats.delivered.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+                            <div className="bg-[#262626] text-white text-[10px] font-bold px-3 py-3 grid-row">
+                                <span>לקוח</span><span>יבואן</span><span>סוכנות</span><span>מנהל</span><span>סכום</span><span></span>
+                            </div>
+                            {loading ? <div className="p-10 text-center"><div className="w-6 h-6 border-2 border-[#9c7229] border-t-transparent animate-spin rounded-full mx-auto"></div></div> :
+                            filteredData.map((v, i) => (
+                                <div key={v.id} className={`px-3 py-3 border-b last:border-0 grid-row ${removingId === v.id ? 'slide-out' : ''} ${v.status === 'נמסר' ? 'bg-emerald-50' : (v.status === 'לא נותנים' ? 'bg-red-50' : (i%2? 'bg-slate-50/50' : ''))}`}>
+                                    <div className="truncate-custom">
+                                        <p className="text-[11px] font-bold">{v.customerName}</p>
+                                        <p className="text-[9px] text-slate-400">{v.agentName}</p>
+                                    </div>
+                                    <div className="text-[10px] truncate-custom">{v.importer || '-'}</div>
+                                    <div className="text-[10px] font-bold text-slate-500 truncate-custom">{v.agency}</div>
+                                    <div className="text-[10px] truncate-custom">{v.manager?.split(' ')[0]}</div>
+                                    <div className="text-[11px] font-black">₪{v.amount}</div>
+                                    <div className="flex justify-center">
+                                        {user.role === 'admin' ? 
+                                            (v.status === 'נמסר' ? <div className="text-emerald-500 font-bold"><Icons.Check/></div> : v.status === 'לא נותנים' ? <span className="text-red-500 font-black text-[12px]">X</span> : <button onClick={() => handleAction(v.id, 'לא נותנים')} className="text-slate-300 hover:text-red-400 transition"><Icons.Trash/></button>) :
+                                            <button onClick={() => handleAction(v.id, 'נמסר')} className="w-7 h-7 bg-emerald-500 text-white rounded-lg flex items-center justify-center shadow-lg active:scale-90 transition"><Icons.Check/></button>
+                                        }
+                                    </div>
+                                </div>
+                            ))}
+                            {!loading && filteredData.length === 0 && <div className="p-10 text-center text-slate-400 text-sm">אין נתונים להצגה</div>}
+                        </div>
+                    </main>
+                    {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#262626] text-[#f6d19c] px-6 py-2 rounded-full shadow-xl text-xs font-bold border border-[#9c7229] z-[200]">{toast}</div>}
+                </div>
+            );
+        }
+
+        function LoginScreen({ onLogin }) {
+            const [pin, setPin] = useState('');
+            const [error, setError] = useState('');
+
+            const handleSubmit = () => {
+                const p = pin.trim().toLowerCase();
+                if(p === ADMIN_CODE) {
+                    onLogin({role:'admin', name:'מנהל מערכת'});
+                } else if(AREA_MANAGERS[p]) {
+                    onLogin({role:'manager', name:AREA_MANAGERS[p]});
+                } else {
+                    setError('קוד שגוי, אנא נסה שנית');
+                    setPin('');
+                    setTimeout(() => setError(''), 3000);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center p-6 w-full">
+                    <div className="bg-white p-8 rounded-[2rem] shadow-xl w-full max-w-[340px] text-center border-b-8 border-slate-200">
+                        <Logo className="h-12 mx-auto mb-6" />
+                        <h1 className="text-xl font-black mb-6 text-[#262626]">כניסה למערכת</h1>
+                        
+                        <input 
+                            type="password" 
+                            value={pin} 
+                            onChange={e=>setPin(e.target.value)} 
+                            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                            className="w-full text-center text-2xl py-3 bg-slate-50 border-2 rounded-xl mb-2 outline-none focus:border-[#9c7229] transition" 
+                            placeholder="קוד כניסה" 
+                        />
+                        
+                        {error && <p className="text-red-500 text-xs font-bold mb-4 animate-pulse">{error}</p>}
+                        
+                        <button 
+                            onClick={handleSubmit} 
+                            className="w-full bg-[#262626] text-[#f6d19c] py-4 rounded-xl font-bold shadow-lg active:scale-95 transition mt-2"
+                        >
+                            התחברות
+                        </button>
+
+                        <div className="mt-8 pt-6 border-t border-slate-100">
+                             <p className="text-[10px] text-slate-400 font-medium">
+                                * כל הזכויות שמורות לקרדיבל פלוס בע״מ
+                             </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
