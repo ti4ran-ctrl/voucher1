@@ -71,18 +71,33 @@
         };
         const ADMIN_CODE = 'credible';
 
+        // מנקה תווי כיווניות/רווחים בלתי-נראים (נפוצים בהעתקה מ-Google Sheets/Excel
+        // ואף בהעתקה בין עורכי טקסט), ומכווץ רווחים כפולים. לא הופך לאותיות קטנות
+        // ולא עושה שום סוג של "includes" - רק ניקוי.
+        const cleanExact = (s) => String(s || "")
+            .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
         // מיפוי מפורש של כינויים אפשריים כפי שהם עשויים להופיע בעמודת "מנהל" בגיליון,
         // כולל שם פרטי/משפחה בודד (למקרה שמזינים בגיליון רק קיצור).
         // חשוב: ההתאמה תמיד תהיה שוויון מדויק של מילה שלמה (token), אף פעם לא הכלה
         // של מחרוזת בתוך מחרוזת (includes) - כדי שלא ייווצרו התאמות שגויות בין שמות
         // שמכילים אותיות משותפות (למשל "מושיקו" לא אמור להיתפס כ"שי").
-        const MANAGER_ALIASES = {
+        const MANAGER_ALIASES_RAW = {
             'טירן סיגורה': ['טירן סיגורה', 'טירן', 'סיגורה'],
             'נחום נחום': ['נחום נחום', 'נחום'],
             'שי סיידון': ['שי סיידון', 'שי', 'סיידון'],
             'אהוד מועלם': ['אהוד מועלם', 'אהוד', 'מועלם', 'אודי'],
             'מושיקו מוואס': ['מושיקו מוואס', 'מושיקו', 'מוואס'],
         };
+
+        // גרסה מנורמלת של המיפוי - גם המפתחות וגם הערכים עוברים ניקוי, כדי שתווים
+        // נסתרים שאולי הצטרפו לטקסט העברי בזמן העריכה/ההעתקה לא ישברו את ההתאמה.
+        const MANAGER_ALIASES = {};
+        Object.entries(MANAGER_ALIASES_RAW).forEach(([key, arr]) => {
+            MANAGER_ALIASES[cleanExact(key)] = arr.map(cleanExact);
+        });
 
         const HEBREW_MONTHS = [
             {v: '01', n: 'ינואר'}, {v: '02', n: 'פברואר'}, {v: '03', n: 'מרץ'}, {v: '04', n: 'אפריל'},
@@ -224,17 +239,10 @@
                 // normalize רק לצורך חיפוש טקסט חופשי (searchTerm) - לא לשיוך מנהל אזור
                 const normalizeSearch = (s) => String(s || "").trim().toLowerCase();
 
-                // ניקוי מדויק לשם המנהל: מסיר תווי כיווניות/רווחים בלתי-נראים שנפוצים
-                // בהעתקה מ-Google Sheets/Excel, ומכווץ רווחים כפולים - אבל לא הופך
-                // לאותיות קטנות ולא עושה שום סוג של "includes".
-                const cleanExact = (s) => String(s || "")
-                    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
                 return data.filter(v => {
                     const rowMgr = cleanExact(v.manager);
-                    const myAliases = MANAGER_ALIASES[user?.name] || [user?.name];
+                    const myNameClean = cleanExact(user?.name);
+                    const myAliases = MANAGER_ALIASES[myNameClean] || [myNameClean];
 
                     // התאמה מדויקת בלבד: או שהערך המלא בעמודה שווה לאחד הכינויים,
                     // או שאחת מהמילים הבודדות בערך (טוקן שלם, לא מחרוזת חלקית)
@@ -384,7 +392,17 @@
                                     </div>
                                 </div>
                             ))}
-                            {!loading && filteredData.length === 0 && <div className="p-10 text-center text-slate-400 text-sm">אין נתונים להצגה</div>}
+                            {!loading && filteredData.length === 0 && (
+                                <div className="p-10 text-center text-slate-400 text-sm space-y-2">
+                                    <p>אין נתונים להצגה</p>
+                                    {user.role === 'manager' && data.length > 0 && (
+                                        <div className="text-[10px] text-slate-400 bg-slate-50 rounded-xl p-3 text-right leading-relaxed">
+                                            <p className="font-bold mb-1">לאבחון: הערכים שנמצאו בעמודת "מנהל" בגיליון לחודש זה:</p>
+                                            <p className="break-words">{Array.from(new Set(data.map(v => v.manager).filter(Boolean))).join(' | ') || 'העמודה ריקה'}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </main>
                     {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#262626] text-[#f6d19c] px-6 py-2 rounded-full shadow-xl text-xs font-bold border border-[#9c7229] z-[200]">{toast}</div>}
