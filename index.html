@@ -71,6 +71,16 @@
         };
         const ADMIN_CODE = 'credible';
 
+        // מיפוי מפורש של כינויים אפשריים כפי שהם עשויים להופיע בעמודת "מנהל" בגיליון.
+        // זה מחליף את ההשוואה הפאזית (substring) שגרמה למנהל אזור אחד לראות שורות של מנהל אחר.
+        const MANAGER_ALIASES = {
+            'טירן סיגורה': ['טירן סיגורה'],
+            'נחום נחום': ['נחום נחום'],
+            'שי סיידון': ['שי סיידון'],
+            'אהוד מועלם': ['אהוד מועלם', 'אודי'],
+            'מושיקו מוואס': ['מושיקו מוואס'],
+        };
+
         const HEBREW_MONTHS = [
             {v: '01', n: 'ינואר'}, {v: '02', n: 'פברואר'}, {v: '03', n: 'מרץ'}, {v: '04', n: 'אפריל'},
             {v: '05', n: 'מאי'}, {v: '06', n: 'יוני'}, {v: '07', n: 'יולי'}, {v: '08', n: 'אוגוסט'},
@@ -208,21 +218,27 @@
             const agencies = useMemo(() => Array.from(new Set(data.map(v => v.agency).filter(Boolean))).sort(), [data]);
 
             const filteredData = useMemo(() => {
-                const normalize = (s) => String(s || "").trim().toLowerCase();
+                // normalize רק לצורך חיפוש טקסט חופשי (searchTerm) - לא לשיוך מנהל אזור
+                const normalizeSearch = (s) => String(s || "").trim().toLowerCase();
+                // normalize מדויק לשם המנהל: רק trim, ללא toLowerCase/includes, כדי למנוע התאמות שגויות
+                const normalizeExact = (s) => String(s || "").trim();
+
                 return data.filter(v => {
-                    const rowMgr = normalize(v.manager);
-                    const myName = normalize(user?.name);
-                    
-                    const isEhuddin = myName.includes('אהוד מועלם');
-                    const isMyArea = user?.role === 'manager' 
-                        ? (rowMgr.includes(myName) || myName.includes(rowMgr) || (isEhuddin && (rowMgr.includes('אודי') || rowMgr === 'אודי')))
+                    const rowMgr = normalizeExact(v.manager);
+
+                    // התאמה מדויקת בלבד מול רשימת הכינויים המפורשת של המנהל המחובר.
+                    // כך שי סיידון יראה רק שורות שבהן v.manager === 'שי סיידון',
+                    // ואהוד מועלם יראה גם שורות שבהן v.manager === 'אודי'.
+                    const myAliases = MANAGER_ALIASES[user?.name] || [user?.name];
+                    const isMyArea = user?.role === 'manager'
+                        ? myAliases.includes(rowMgr)
                         : true;
-                    
+
                     if (user?.role === 'manager' && (v.status === 'נמסר' || v.status === 'לא נותנים')) return false;
 
                     const mAgency = filterAgency === 'All' || v.agency === filterAgency;
-                    const s = searchTerm.toLowerCase();
-                    const mSearch = !s || [v.agentName, v.agency, v.customerName, v.importer].some(f => normalize(f).includes(s));
+                    const s = normalizeSearch(searchTerm);
+                    const mSearch = !s || [v.agentName, v.agency, v.customerName, v.importer].some(f => normalizeSearch(f).includes(s));
                     
                     return isMyArea && mAgency && mSearch;
                 }).sort((a, b) => {
